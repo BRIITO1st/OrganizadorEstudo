@@ -405,7 +405,7 @@ fun EditTaskDialog(task: Task, onDismiss: () -> Unit, onConfirm: (Task) -> Unit)
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancelar")
+                Text("Cancelar") //
             }
         }
     )
