@@ -35,7 +35,7 @@ fun StudyPlannerScreen(taskViewModel: TaskViewModel) {
     var showEditDialog by remember { mutableStateOf(false) }
     var taskToEdit by remember { mutableStateOf<Task?>(null) }
 
-    // --- ESTADOS PARA O DIÁLOGO DE EXCLUSÃO ---
+    // ---CERTEZA DE EXCLUSÃO ---
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var taskToDelete by remember { mutableStateOf<Task?>(null) }
 
