@@ -10,4 +10,5 @@ data class Task(
     val title: String,
     val subject: String,
     val isCompleted: Boolean = false
+
 )

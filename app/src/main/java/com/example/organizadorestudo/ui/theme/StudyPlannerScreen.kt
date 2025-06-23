@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.organizadorestudo.data.Task
 import com.example.organizadorestudo.ui.theme.GreenCompleteText
-import com.example.organizadorestudo.ui.theme.RedDelete
 import com.example.organizadorestudo.ui.theme.GreyText
+import com.example.organizadorestudo.ui.theme.RedDelete
 import com.example.organizadorestudo.viewmodel.TaskViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -35,7 +35,10 @@ fun StudyPlannerScreen(taskViewModel: TaskViewModel) {
     var showEditDialog by remember { mutableStateOf(false) }
     var taskToEdit by remember { mutableStateOf<Task?>(null) }
 
-    // --- ESTADOS PARA A ANIMAÇÃO ---
+    // --- ESTADOS PARA O DIÁLOGO DE EXCLUSÃO ---
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var taskToDelete by remember { mutableStateOf<Task?>(null) }
+
     var showSuccessAnimation by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -60,7 +63,6 @@ fun StudyPlannerScreen(taskViewModel: TaskViewModel) {
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
                 AddTaskCard(onAddTask = { title, subject ->
-                    // disparar a animação
                     taskViewModel.addTask(title, subject)
                     scope.launch {
                         showSuccessAnimation = true
@@ -85,7 +87,9 @@ fun StudyPlannerScreen(taskViewModel: TaskViewModel) {
                         showEditDialog = true
                     },
                     onDeleteClick = { task ->
-                        taskViewModel.deleteTask(task)
+                        // Em vez de deletar direto, abre o diálogo de confirmação
+                        taskToDelete = task
+                        showDeleteConfirmDialog = true
                     }
                 )
             }
@@ -102,8 +106,18 @@ fun StudyPlannerScreen(taskViewModel: TaskViewModel) {
             )
         }
 
-        // --- COMPOSABLE DA ANIMAÇÃO ---
-        // sobrepõe o conteudo
+        // --- DIÁLOGO DE CONFIRMAÇÃO DE EXCLUSÃO ---
+        if (showDeleteConfirmDialog && taskToDelete != null) {
+            DeleteConfirmationDialog(
+                taskTitle = taskToDelete!!.title,
+                onDismiss = { showDeleteConfirmDialog = false },
+                onConfirm = {
+                    taskViewModel.deleteTask(taskToDelete!!)
+                    showDeleteConfirmDialog = false
+                }
+            )
+        }
+
         AnimatedVisibility(
             visible = showSuccessAnimation,
             enter = fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = tween(300)),
@@ -115,12 +129,45 @@ fun StudyPlannerScreen(taskViewModel: TaskViewModel) {
 }
 
 @Composable
+fun DeleteConfirmationDialog(
+    taskTitle: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Warning, contentDescription = "Aviso") },
+        title = { Text("Confirmar Exclusão", fontWeight = FontWeight.Bold) },
+        text = {
+            Text("Tem certeza de que deseja excluir a tarefa \"$taskTitle\"?\n\nEsta ação não pode ser desfeita.")
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(containerColor = RedDelete)
+            ) {
+                Text("Excluir")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
+
+
+// O restante do código (SuccessOverlay, AddTaskCard, etc.) continua o mesmo.
+// ... (cole o restante do seu código aqui)
+
+@Composable
 fun SuccessOverlay() {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.4f)) // fica semi-transparente
+            .background(Color.Black.copy(alpha = 0.4f))
     ) {
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -149,11 +196,11 @@ fun SuccessOverlay() {
     }
 }
 
-
 @Composable
 fun AddTaskCard(onAddTask: (String, String) -> Unit) {
     var title by remember { mutableStateOf("") }
     var subject by remember { mutableStateOf("") }
+    val maxChars = 100
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -170,27 +217,40 @@ fun AddTaskCard(onAddTask: (String, String) -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
                 value = title,
-                onValueChange = { title = it },
+                onValueChange = { if (it.length <= maxChars) title = it },
                 label = { Text("Título da Tarefa") },
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.Title, contentDescription = null) },
-                singleLine = true
+                singleLine = true,
+                supportingText = {
+                    Text(
+                        text = "${title.length} / $maxChars",
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End,
+                    )
+                }
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = subject,
-                onValueChange = { subject = it },
+                onValueChange = { if (it.length <= maxChars) subject = it },
                 label = { Text("Matéria/Disciplina") },
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.Book, contentDescription = null) },
-                singleLine = true
+                singleLine = true,
+                supportingText = {
+                    Text(
+                        text = "${subject.length} / $maxChars",
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End,
+                    )
+                }
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = {
                     if (title.isNotBlank() && subject.isNotBlank()) {
                         onAddTask(title, subject)
-                        // Limpa os campos após o clique
                         title = ""
                         subject = ""
                     }
@@ -206,9 +266,6 @@ fun AddTaskCard(onAddTask: (String, String) -> Unit) {
         }
     }
 }
-
-// O restante do código (TaskList, TaskItem, etc.) continua o mesmo.
-// ... (cole o restante do seu código aqui se necessário)
 
 @Composable
 fun TaskList(
@@ -303,6 +360,7 @@ fun TaskItem(
 fun EditTaskDialog(task: Task, onDismiss: () -> Unit, onConfirm: (Task) -> Unit) {
     var title by remember { mutableStateOf(task.title) }
     var subject by remember { mutableStateOf(task.subject) }
+    val maxChars = 100
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -311,16 +369,30 @@ fun EditTaskDialog(task: Task, onDismiss: () -> Unit, onConfirm: (Task) -> Unit)
             Column {
                 OutlinedTextField(
                     value = title,
-                    onValueChange = { title = it },
+                    onValueChange = { if (it.length <= maxChars) title = it },
                     label = { Text("Título") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    supportingText = {
+                        Text(
+                            text = "${title.length} / $maxChars",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.End,
+                        )
+                    }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = subject,
-                    onValueChange = { subject = it },
+                    onValueChange = { if (it.length <= maxChars) subject = it },
                     label = { Text("Matéria") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    supportingText = {
+                        Text(
+                            text = "${subject.length} / $maxChars",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.End,
+                        )
+                    }
                 )
             }
         },
